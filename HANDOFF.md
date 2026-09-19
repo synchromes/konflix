@@ -40,15 +40,18 @@ idlix-api (:4000, docker, hanya 127.0.0.1) → stealth (:8191, Go, hanya 127.0.0
 
 **Frontend** (`/var/www/baleflix`, `npm run build` + `pm2 restart baleflix --update-env`):
 - Player baru `components/player/` (config resilien, `usePlayerEngine` + rebuild penuh, muted autoplay, error jujur, `onStreamExhausted`, `onEnded`); hls-first (native hanya bila tanpa MSE); `Watch*Client` + `UpNext` (autoplay episode +8 detik).
-- `/api/media`: undici 2x → Stealth (teks) → **curl subprocess (semua konten)** → 502. Header curl via file sementara (BUKAN `-D /dev/stderr`, deterministik exit 23 bila dua pipe!).
+- `/api/media`: undici 2x → Stealth (teks) → **curl subprocess (semua konten)** → 502; logika respons disatukan (`respondUpstream`); Range divalidasi ketat; header curl via file sementara (BUKAN `-D /dev/stderr`, deterministik exit 23 bila dua pipe!).
 - Gambar: `images.unoptimized:true` (optimizer 500 massal karena egress flaky).
-- Hero: backdrop w1280 asli (fetch detail, cache 2 jam) + portrait di HP + auto-slide 8 dtk + usap.
-- Beranda: rail 12 item, `grid-cols-[minmax(0,1fr)]` (grid blowout!), `ScrollRow` bersama, `ContinueWatching`, tanpa snap (gulir bebas) + `overscroll-x-contain`.
-- Filter advanced (`FilterBar` dropdown kustom + `FilterableListing` + `GenreCombined` mpage/spage + halaman `/genre` indeks); genre & negara dari API live (drama-korea/anime = 0 hasil di upstream, JANGAN di-hardcode).
-- Search Netflix-like (kolom besar, debounce URL, jelajah trending, hitungan = kartu via `filterUsableItems`).
+- Hero: backdrop w1280 asli (fetch detail, cache 2 jam) + portrait di HP + auto-slide 8 dtk + usap + fallback upscale w780.
+- Beranda: rail 12 item, `grid-cols-[minmax(0,1fr)]` (grid blowout!), `ScrollRow` bersama (usap + panah), `ContinueWatching` (riwayat + posisi), tanpa snap (gulir bebas) + `overscroll-x-contain`.
+- Filter advanced (`FilterBar` dropdown kustom + `FilterableListing` + `GenreCombined` mpage/spage + halaman `/genre` indeks); genre & negara dari API live (drama-korea/anime = 0 hasil di upstream, JANGAN di-hardcode); pagination pakai `hasNext` backend.
+- Search Netflix-like (kolom besar, debounce URL, jelajah trending, hitungan = kartu via `filterUsableItems`, grid vertikal).
 - Mobile: BottomNav ikon outline SVG, search navbar expandable.
+- Halaman watch sinematik (ambient glow, max-w-5xl); `StreamPrewarm` di detail (rantai 18 dtk → 0,09 dtk via cache 15 mnt).
+- `CastAvatar` (siluet bila foto kosong/gagal) + seksi Pemeran di series.
 - Footer/teks gaya streaming (tanpa kata IDLIX/docker/pembelajaran di UI).
-- `NODE_OPTIONS=--dns-result-order=ipv4first` tersimpan di pm2 (`pm2 save` sudah).
+- Scrollbar global gelap ramping; `NODE_OPTIONS=--dns-result-order=ipv4first` tersimpan di pm2 (`pm2 save` sudah).
+- `.env.example` (template aman push).
 
 ## 4. Jebakan yang sudah dipetakan (baca sebelum debug)
 

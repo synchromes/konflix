@@ -4,6 +4,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import Rail from "@/components/Rail";
 import WatchButton from "@/components/WatchButton";
+import StreamPrewarm from "@/components/StreamPrewarm";
+import CastAvatar from "@/components/CastAvatar";
 import TrailerButton from "@/components/TrailerButton";
 import ApiNotice from "@/components/ApiNotice";
 import { filterUsableItems, resolveKind, serverIdlix, youtubeId } from "@/lib/idlix";
@@ -136,6 +138,8 @@ export default async function MovieDetail({ params }: { params: Promise<{ slug: 
             />
             {trailer ? <TrailerButton trailerId={trailer} title={title} /> : null}
           </div>
+          {/* Siapkan stream di background selagi membaca sinopsis. */}
+          <StreamPrewarm path={`/movie/${encodeURIComponent(slug)}/stream`} />
         </div>
       </div>
 
@@ -145,9 +149,7 @@ export default async function MovieDetail({ params }: { params: Promise<{ slug: 
           <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
             {cast.map((c, i) => (
               <div key={`${c.name ?? "pemain"}-${i}`} className="w-28 shrink-0 text-center">
-                <div className="relative mx-auto h-28 w-28 overflow-hidden rounded-full bg-zinc-800">
-                  {c.image ? <Image src={c.image} alt={c.name ?? "?"} fill className="object-cover" sizes="112px" /> : null}
-                </div>
+                <CastAvatar image={typeof c.image === "string" ? c.image : undefined} name={String(c.name ?? "?")} />
                 <p className="mt-2 truncate text-xs font-semibold text-white">{c.name}</p>
                 {c.character ? <p className="truncate text-[11px] text-zinc-400">{c.character}</p> : null}
               </div>

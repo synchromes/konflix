@@ -6,6 +6,8 @@ import Rail from "@/components/Rail";
 import WatchButton from "@/components/WatchButton";
 import TrailerButton from "@/components/TrailerButton";
 import EpisodeSelector from "@/components/EpisodeSelector";
+import StreamPrewarm from "@/components/StreamPrewarm";
+import CastAvatar from "@/components/CastAvatar";
 import ApiNotice from "@/components/ApiNotice";
 import { filterUsableItems, resolveKind, serverIdlix, youtubeId } from "@/lib/idlix";
 import { parseSeasons } from "@/lib/seasons";
@@ -53,6 +55,9 @@ export default async function SeriesDetail({ params }: { params: Promise<{ slug:
   const genres = asStringArray(d.genres) ?? [];
   const trailer = youtubeId(d.trailer);
   const recs = filterUsableItems(asContentItemArray(d.recommendations));
+  const cast = Array.isArray(d.cast)
+    ? (d.cast as Array<{ name?: unknown; character?: unknown; image?: unknown }>).slice(0, 12)
+    : [];
 
   // Season & episode pertama yang benar-benar tersedia, bukan asumsi "S1 E1".
   const seasons = parseSeasons(d);
@@ -110,10 +115,31 @@ export default async function SeriesDetail({ params }: { params: Promise<{ slug:
             <WatchButton item={{ slug, title, poster, backdrop, type: "series", overview }} />
             {trailer ? <TrailerButton trailerId={trailer} title={title} /> : null}
           </div>
+          {/* Siapkan episode pertama di background selagi membaca sinopsis. */}
+          <StreamPrewarm
+            path={`/series/${encodeURIComponent(slug)}/season/${firstSeason?.num ?? 1}/episode/${firstEpisode}/stream`}
+          />
         </div>
       </div>
 
       <EpisodeSelector key={slug} slug={slug} detail={d} initialSeason={firstSeason?.num} />
+
+      {cast.length > 0 ? (
+        <section className="mt-10">
+          <h2 className="mb-3 text-lg font-bold text-white">Pemeran</h2>
+          <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+            {cast.map((c, i) => (
+              <div key={`${String(c.name ?? "pemain")}-${i}`} className="w-28 shrink-0 text-center">
+                <CastAvatar image={typeof c.image === "string" ? c.image : undefined} name={String(c.name ?? "?")} />
+                <p className="mt-2 truncate text-xs font-semibold text-white">{String(c.name ?? "?")}</p>
+                {typeof c.character === "string" && c.character ? (
+                  <p className="truncate text-[11px] text-zinc-400">{c.character}</p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {recs.length > 0 ? (
         <div className="mt-10">
