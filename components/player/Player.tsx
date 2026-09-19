@@ -1,19 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Hls, { ErrorDetails, ErrorTypes, type ErrorData } from "hls.js";
 import { loadProgress, saveProgress, useStoredVolume } from "@/lib/store";
-
-export interface Subtitle {
-  label: string;
-  src: string;
-  srclang: string;
-}
+import { usePlayerEngine } from "./usePlayerEngine";
+import type { Subtitle } from "./types";
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
-const MAX_NETWORK_RETRIES = 2;
-
-type Engine = "" | "hls" | "native";
 
 function fmt(t: number): string {
   if (!Number.isFinite(t) || t < 0) t = 0;
@@ -24,76 +16,65 @@ function fmt(t: number): string {
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
 
-// Deteksi kemampuan pemutaran sekali saja. Aman dari mismatch hidrasi karena
-// VideoPlayer hanya dirender setelah URL stream didapat di sisi klien.
-function detectEngine(): Engine {
-  if (typeof document === "undefined") return "";
-  const probe = document.createElement("video");
-  if (probe.canPlayType("application/vnd.apple.mpegurl")) return "native";
-  return Hls.isSupported() ? "hls" : "";
-}
-
-// Pesan error yang spesifik, supaya tidak semua kegagalan tampil sebagai
-// "Gagal memuat stream" (403 kedaluwarsa vs 5xx sumber vs jaringan).
-function describeHlsError(data: ErrorData): string {
-  const code = data.response?.code;
-  if (code === 401 || code === 403) return "Tautan stream sudah kedaluwarsa atau ditolak sumber.";
-  if (code === 404) return "Manifest stream tidak ditemukan di sumber.";
-  if (code && code >= 500) return `Sumber stream sedang bermasalah (HTTP ${code}).`;
-  if (data.details === ErrorDetails.MANIFEST_PARSING_ERROR) return "Format stream tidak dikenali.";
-  if (code) return `Gagal memuat stream (HTTP ${code}).`;
-  if (data.details === ErrorDetails.MANIFEST_LOAD_TIMEOUT) return "Sumber stream tidak merespons (timeout).";
-  return "Koneksi ke sumber stream gagal.";
-}
-
-export default function VideoPlayer(props: {
+export default function Player(props: {
   src: string;
-  poster?: string;
   subtitles?: Subtitle[];
   slug: string;
   season?: number;
   episode?: number;
+  poster?: string;
+  /** Dipanggil saat engine menyerah (perlu URL bertanda tangan yang baru). */
+  onStreamExhausted: () => void;
+  /** Dipanggil sekali saat video selesai diputar. */
+  onEnded?: () => void;
 }) {
-  const [attempt, setAttempt] = useState(0);
-  const { src } = props;
-
-  const retry = useCallback(() => setAttempt((a) => a + 1), []);
-
+  const { src, subtitles = [], slug, season, episode, poster, onStreamExhausted, onEnded } = props;
   if (!src) return null;
-  // Mengganti `key` meremount pemain, sehingga seluruh state (posisi, subtitle
-  // terpilih, pesan error) kembali bersih tanpa setState di dalam effect.
-  return <PlayerSurface key={`${src}#${attempt}`} {...props} onRetry={retry} />;
+  return (
+    <PlayerSurface
+      key={src}
+      src={src}
+      subtitles={subtitles}
+      slug={slug}
+      season={season}
+      episode={episode}
+      poster={poster}
+      onStreamExhausted={onStreamExhausted}
+      onEnded={onEnded}
+    />
+  );
 }
 
 function PlayerSurface({
   src,
-  poster,
-  subtitles = [],
+  subtitles,
   slug,
   season,
   episode,
-  onRetry,
+  poster,
+  onStreamExhausted,
+  onEnded,
 }: {
   src: string;
-  poster?: string;
-  subtitles?: Subtitle[];
+  subtitles: Subtitle[];
   slug: string;
   season?: number;
   episode?: number;
-  onRetry: () => void;
+  poster?: string;
+  onStreamExhausted: () => void;
+  onEnded?: () => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
-  const hlsRef = useRef<Hls | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seeking = useRef(false);
   const lastSaved = useRef(0);
-  const networkRetries = useRef(0);
-  const mediaRetries = useRef(0);
+  const onEndedRef = useRef(onEnded);
+  useEffect(() => {
+    onEndedRef.current = onEnded;
+  }, [onEnded]);
 
-  const [engine] = useState<Engine>(() => detectEngine());
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
   const [dur, setDur] = useState(0);
@@ -108,78 +89,28 @@ function PlayerSurface({
   const [error, setError] = useState("");
   const [showUI, setShowUI] = useState(true);
   const [menu, setMenu] = useState<null | "quality" | "subs" | "speed">(null);
-  const [levels, setLevels] = useState<number[]>([]);
   const [level, setLevel] = useState(-1);
-  const [autoHeight, setAutoHeight] = useState<number | null>(null);
   const [subIdx, setSubIdx] = useState(subtitles.length > 0 ? 0 : -1);
 
   const isMuted = mutedOverride || volume === 0;
 
-  // ---------- setup media ----------
+  const { engine, levels, autoHeight, pickLevel, rebuild } = usePlayerEngine(videoRef, {
+    src,
+    onFatal: (message) => setError(message),
+  });
+
+  // ---------- event elemen video (resume, progres, status) ----------
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-
-    let hls: Hls | null = null;
     let disposed = false;
 
-    const failWith = (message: string) => {
-      if (!disposed) setError(message);
-    };
-
-    // Terapkan pengaturan volume tersimpan tanpa setState (DOM write saja).
     video.volume = volume;
     video.muted = isMuted;
 
-    if (engine === "native") {
-      video.src = src;
-    } else if (engine === "hls") {
-      // Kegagalan manifest/sub-playlist sering bersifat sesaat pada sumber ini,
-      // jadi pulihkan dulu (startLoad/recoverMediaError) sebelum menampilkan error.
-      hls = new Hls({ enableWorker: true, backBufferLength: 60 });
-      hlsRef.current = hls;
-      hls.loadSource(src);
-      hls.attachMedia(video);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        const lvls = hlsRef.current?.levels ?? [];
-        const heights = [
-          ...new Set(lvls.map((l) => l.height).filter((h) => Number.isFinite(h))),
-        ].sort((a, b) => a - b);
-        if (!disposed) setLevels(heights);
-      });
-      hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
-        const h = hlsRef.current?.levels[data.level]?.height;
-        if (!disposed && Number.isFinite(h)) setAutoHeight(h as number);
-      });
-      hls.on(Hls.Events.ERROR, (_, data) => {
-        if (disposed || !data.fatal) return;
-        // Pulihkan dulu sebelum menyerah: banyak kegagalan stream bersifat sesaat.
-        if (data.type === ErrorTypes.MEDIA_ERROR && mediaRetries.current < 1) {
-          mediaRetries.current += 1;
-          hlsRef.current?.recoverMediaError();
-          return;
-        }
-        if (data.type === ErrorTypes.NETWORK_ERROR && networkRetries.current < MAX_NETWORK_RETRIES) {
-          networkRetries.current += 1;
-          const delay = 1000 * 2 ** (networkRetries.current - 1);
-          retryTimer.current = setTimeout(() => {
-            if (disposed) return;
-            setWaiting(true);
-            hlsRef.current?.startLoad();
-          }, delay);
-          return;
-        }
-        failWith(describeHlsError(data));
-      });
-      hls.on(Hls.Events.MANIFEST_LOADED, () => {
-        networkRetries.current = 0;
-      });
-    } else {
-      failWith("Browser ini tidak mendukung pemutaran HLS.");
-    }
-
     const startAt = loadProgress(slug, season, episode);
     const onMeta = () => {
+      if (disposed) return;
       setDur(video.duration || 0);
       if (startAt > 5 && startAt < (video.duration || Infinity) - 10) {
         try {
@@ -193,8 +124,7 @@ function PlayerSurface({
     const onTime = () => {
       const t = video.currentTime;
       if (!seeking.current) {
-        // Perbarui UI hanya saat detik berubah (bukan 4x/detik), dan simpan
-        // progres tiap 5 detik agar tidak menulis localStorage terus-menerus.
+        // Perbarui UI hanya saat detik berubah, simpan progres tiap 5 detik.
         setTime((prev) => (Math.floor(prev) === Math.floor(t) ? prev : t));
       }
       if (Math.abs(t - lastSaved.current) >= 5) {
@@ -224,8 +154,8 @@ function PlayerSurface({
       setEnded(true);
       setPlaying(false);
       saveProgress(slug, 0, season, episode);
+      onEndedRef.current?.();
     };
-    const onNativeError = () => failWith("Sumber stream tidak bisa diputar browser ini.");
 
     video.addEventListener("loadedmetadata", onMeta);
     video.addEventListener("timeupdate", onTime);
@@ -236,8 +166,6 @@ function PlayerSurface({
     video.addEventListener("playing", onCanPlay);
     video.addEventListener("canplay", onCanPlay);
     video.addEventListener("ended", onEnd);
-    video.addEventListener("error", onNativeError);
-
     return () => {
       disposed = true;
       video.removeEventListener("loadedmetadata", onMeta);
@@ -249,16 +177,33 @@ function PlayerSurface({
       video.removeEventListener("playing", onCanPlay);
       video.removeEventListener("canplay", onCanPlay);
       video.removeEventListener("ended", onEnd);
-      video.removeEventListener("error", onNativeError);
       if (video.currentTime > 0) saveProgress(slug, video.currentTime, season, episode);
-      if (retryTimer.current) clearTimeout(retryTimer.current);
-      hls?.destroy();
-      hlsRef.current = null;
     };
-    // volume/isMuted sengaja tidak masuk dependency: nilainya hanya diterapkan
-    // ulang lewat effect terpisah di bawah agar tidak membangun ulang stream.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [src, slug, season, episode, engine]);
+  }, [src, slug, season, episode]);
+
+  // ---------- autoplay senyap saat mount ----------
+  // Kebijakan browser: play() bersuara butuh gestur, play() bisu selalu boleh.
+  // Coba putar bisu sekali saat engine siap — kalau lolos, video langsung jalan
+  // (pengguna tinggal ketuk 🔊). Kalau ditolak, diam saja: tombol "Mulai" yang
+  // tampil (gestur di sana selalu lolos). Mencegah pesan autoplay palsu.
+  const autoTried = useRef(false);
+  useEffect(() => {
+    if (autoTried.current || engine === "") return;
+    const video = videoRef.current;
+    if (!video) return;
+    autoTried.current = true;
+    video.muted = true;
+    void video
+      .play()
+      .then(() => {
+        setMutedOverride(true);
+      })
+      .catch(() => {
+        video.muted = isMuted;
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engine, src]);
 
   // ---------- terapkan volume ke elemen video ----------
   useEffect(() => {
@@ -317,7 +262,19 @@ function PlayerSurface({
           // abaikan
         }
       }
-      void v.play().catch(() => setError("Autoplay diblokir browser — tekan tombol play."));
+      // Hanya NotAllowedError yang berarti autoplay diblokir. Jenis lain
+      // (mis. AbortError karena load baru, NotSupportedError karena sumber
+      // gagal dimuat) punya arti berbeda — jangan tuduh autoplay.
+      void v.play().catch((e: unknown) => {
+        const name = (e as { name?: string } | null)?.name;
+        if (name === "NotAllowedError") {
+          setError("Autoplay diblokir browser — tekan tombol play.");
+        } else if (name === "AbortError") {
+          // play() diinterupsi load baru (mis. rebuild engine) — abaikan.
+        } else {
+          setError("Video tidak bisa diputar. Coba muat ulang pemain di bawah.");
+        }
+      });
     } else {
       v.pause();
     }
@@ -385,25 +342,23 @@ function PlayerSurface({
     [poke]
   );
 
-  const pickLevel = useCallback(
+  const onPickLevel = useCallback(
     (h: number) => {
-      setLevel(h);
-      const hls = hlsRef.current;
-      if (hls) {
-        if (h === -1) {
-          hls.currentLevel = -1;
-          const cur = hls.levels[hls.nextLevel]?.height;
-          setAutoHeight(Number.isFinite(cur) ? (cur as number) : null);
-        } else {
-          const idx = hls.levels.findIndex((l) => l.height === h);
-          if (idx >= 0) hls.currentLevel = idx;
-        }
-      }
+      pickLevel(h, setLevel);
       setMenu(null);
       poke();
     },
-    [poke]
+    [pickLevel, poke]
   );
+
+  // Muat ulang engine dengan URL yang sama (sesi/CDN edge baru), tanpa
+  // menunggu URL bertanda tangan baru (±20 dtk).
+  const reloadEngine = useCallback(() => {
+    setError("");
+    setWaiting(true);
+    rebuild();
+    poke();
+  }, [rebuild, poke]);
 
   // ---------- seek bar (pointer) ----------
   const seekToClientX = useCallback((clientX: number) => {
@@ -543,25 +498,45 @@ function PlayerSurface({
       ) : null}
 
       {error ? (
-        <>
-          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/60 p-4 text-center">
+          <p className="max-w-md text-sm text-red-200">{error}</p>
+          <div className="flex flex-wrap justify-center gap-2">
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onRetry();
+                reloadEngine();
               }}
               className="rounded-md bg-red-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-red-700"
             >
-              Coba lagi
-            </button>
-          </div>
-          <div className="absolute inset-x-0 bottom-0 bg-red-950/90 px-4 py-2 text-center text-xs text-red-200">
-            {error}{" "}
-            <button onClick={() => onRetry()} className="ml-2 font-bold underline hover:text-white">
               Muat ulang pemain
             </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onStreamExhausted();
+              }}
+              className="rounded-md border border-white/25 px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
+            >
+              Ambil URL stream baru
+            </button>
           </div>
-        </>
+          <p className="max-w-md text-[11px] text-zinc-400">
+            “Muat ulang” memakai URL yang sama (cepat). “URL baru” meminta tautan baru ke sumber (±20 detik).
+          </p>
+        </div>
+      ) : null}
+
+      {/* petunjuk suara saat autoplay bisu berhasil */}
+      {playing && isMuted && started && !error ? (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleMute();
+          }}
+          className="absolute left-1/2 top-4 -translate-x-1/2 rounded-full bg-black/70 px-4 py-1.5 text-xs font-semibold text-white ring-1 ring-white/25 hover:bg-black/90"
+        >
+          🔇 Tanpa suara — ketuk untuk bersuara
+        </button>
       ) : null}
 
       {/* kontrol bawah */}
@@ -686,7 +661,7 @@ function PlayerSurface({
                 {menu === "quality" ? (
                   <div className="absolute bottom-10 right-0 w-36 overflow-hidden rounded-lg bg-zinc-900 text-xs ring-1 ring-white/15">
                     <button
-                      onClick={() => pickLevel(-1)}
+                      onClick={() => onPickLevel(-1)}
                       className={`block w-full px-3 py-2 text-left hover:bg-white/10 ${level === -1 ? "text-red-400" : "text-zinc-200"}`}
                     >
                       Otomatis{autoHeight ? ` (${autoHeight}p)` : ""}
@@ -694,7 +669,7 @@ function PlayerSurface({
                     {levels.map((h) => (
                       <button
                         key={h}
-                        onClick={() => pickLevel(h)}
+                        onClick={() => onPickLevel(h)}
                         className={`block w-full px-3 py-2 text-left hover:bg-white/10 ${level === h ? "text-red-400" : "text-zinc-200"}`}
                       >
                         {h}p{levels.length === 1 ? " (satu-satunya)" : ""}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import VideoPlayer from "@/components/VideoPlayer";
+import Player from "@/components/player/Player";
 import { useStream } from "@/lib/useStream";
 
 export default function WatchMovieClient({
@@ -23,7 +23,15 @@ export default function WatchMovieClient({
   });
 
   return (
-    <div className="py-8">
+    <div className="relative -mx-4 -mt-16 px-4 pb-10 pt-20 sm:-mx-6 sm:px-6">
+      {poster ? (
+        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={poster} alt="" className="h-full w-full scale-125 object-cover opacity-20 blur-3xl" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a]/60 via-[#0a0a0a]/85 to-[#0a0a0a]" />
+        </div>
+      ) : null}
+      <div className="relative mx-auto max-w-5xl">
       <Link href={`/movie/${encodeURIComponent(slug)}`} className="text-sm text-zinc-400 hover:text-white">
         ← Kembali ke detail
       </Link>
@@ -64,9 +72,10 @@ export default function WatchMovieClient({
 
       {!loading && url ? (
         <div className="mt-4">
-          <VideoPlayer src={url} subtitles={subs} slug={slug} poster={poster} />
+          <Player src={url} subtitles={subs} slug={slug} poster={poster} onStreamExhausted={retry} />
         </div>
       ) : null}
+      </div>
     </div>
   );
 }

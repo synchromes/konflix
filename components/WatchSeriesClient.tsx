@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import VideoPlayer from "@/components/VideoPlayer";
+import { useState } from "react";
+import Player from "@/components/player/Player";
+import UpNext from "@/components/UpNext";
 import { useStream } from "@/lib/useStream";
 
 export default function WatchSeriesClient({
@@ -27,9 +29,20 @@ export default function WatchSeriesClient({
     season,
     episode,
   });
+  const [finished, setFinished] = useState(false);
+  const nextHref = `/watch/series/${encodeURIComponent(slug)}?season=${season}&episode=${episode + 1}`;
 
   return (
-    <div className="py-8">
+    <div className="relative -mx-4 -mt-16 px-4 pb-10 pt-20 sm:-mx-6 sm:px-6">
+      {/* cahaya ambient dari poster agar halaman terasa sinematik */}
+      {poster ? (
+        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={poster} alt="" className="h-full w-full scale-125 object-cover opacity-20 blur-3xl" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a]/60 via-[#0a0a0a]/85 to-[#0a0a0a]" />
+        </div>
+      ) : null}
+      <div className="relative mx-auto max-w-5xl">
       <Link href={`/series/${encodeURIComponent(slug)}`} className="text-sm text-zinc-400 hover:text-white">
         ← Kembali ke detail
       </Link>
@@ -38,7 +51,7 @@ export default function WatchSeriesClient({
       </h1>
       {meta ? <p className="mt-1 text-xs text-zinc-400">{meta}</p> : null}
 
-      <div className="mt-3 flex gap-2 text-sm">
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
         {episode > 1 ? (
           <Link
             href={`/watch/series/${encodeURIComponent(slug)}?season=${season}&episode=${episode - 1}`}
@@ -48,10 +61,16 @@ export default function WatchSeriesClient({
           </Link>
         ) : null}
         <Link
-          href={`/watch/series/${encodeURIComponent(slug)}?season=${season}&episode=${episode + 1}`}
+          href={nextHref}
           className="rounded-md bg-red-600 px-3 py-1.5 font-semibold hover:bg-red-700"
         >
           E{episode + 1} →
+        </Link>
+        <Link
+          href={`/series/${encodeURIComponent(slug)}#episode`}
+          className="rounded-md border border-white/15 px-3 py-1.5 text-zinc-300 hover:bg-white/10"
+        >
+          Semua episode
         </Link>
       </div>
 
@@ -86,7 +105,7 @@ export default function WatchSeriesClient({
 
       {!loading && url ? (
         <div className="mt-4">
-          <VideoPlayer
+          <Player
             key={`${slug}-${season}-${episode}`}
             src={url}
             subtitles={subs}
@@ -94,9 +113,19 @@ export default function WatchSeriesClient({
             season={season}
             episode={episode}
             poster={poster}
+            onStreamExhausted={retry}
+            onEnded={() => setFinished(true)}
           />
+          {finished ? (
+            <UpNext
+              key={nextHref}
+              href={nextHref}
+              label={`${title ?? slug.replace(/-/g, " ")} — S${season} E${episode + 1}`}
+            />
+          ) : null}
         </div>
       ) : null}
+      </div>
     </div>
   );
 }

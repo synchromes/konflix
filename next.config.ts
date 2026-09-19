@@ -28,6 +28,13 @@ const CSP = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   images: {
+    // unoptimized: gambar (TMDB/picsum/yt) dimuat langsung oleh browser.
+    // Optimizer Next (`/_next/image`) mengambil gambar dari sisi server, dan
+    // egress server ini terbukti flaky untuk fetch paralel (ETIMEDOUT
+    // intermiten) sehingga thumbnail sering 500. Browser pengunjung tidak
+    // punya masalah itu. remotePatterns dipertahankan sebagai dokumentasi
+    // host yang diizinkan (dipakai CSP img-src di bawah).
+    unoptimized: true,
     // pathname dibatasi supaya host CDN gambar tidak bisa dipakai untuk
     // memproses path sembarangan lewat optimizer.
     remotePatterns: [

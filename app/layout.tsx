@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import BottomNav from "@/components/BottomNav";
 import Footer from "@/components/Footer";
 
 const geistSans = Geist({
@@ -23,7 +24,7 @@ export const metadata: Metadata = {
     default: "Baleflix — Nonton Film & Series",
     template: "%s • Baleflix",
   },
-  description: "Website streaming film dan series ala Netflix. Didukung IDLIX-API.",
+  description: "Nonton ribuan film dan series favorit kapan saja, di mana saja.",
   openGraph: {
     siteName: "Baleflix",
     locale: "id_ID",
@@ -49,10 +50,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Lewati ke konten utama
         </a>
         <Navbar />
-        <main id="main" className="mx-auto min-h-[70vh] max-w-7xl px-4 pt-16 sm:px-6">
+        <main id="main" className="mx-auto min-h-[70vh] max-w-7xl px-4 pb-24 pt-16 sm:px-6 md:pb-0">
           {children}
         </main>
         <Footer />
+        <BottomNav />
       </body>
     </html>
   );

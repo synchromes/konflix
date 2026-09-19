@@ -22,8 +22,7 @@ export const MOCK_ITEMS: ContentItem[] = seeds.map((s) => ({
   type: s.type,
   poster: `https://picsum.photos/seed/${s.slug}/500/750`,
   backdrop: `https://picsum.photos/seed/${s.slug}-bg/1280/720`,
-  overview:
-    "Ini data contoh lokal. Jalankan IDLIX-API (docker compose up -d) agar katalog asli tampil di sini.",
+  overview: "Sinopsis lengkap segera hadir untuk judul ini.",
   genres: s.type === "series" ? ["Drama", "Series"] : ["Action", "Drama"],
   rating: 7.5,
 }));

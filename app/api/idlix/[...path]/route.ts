@@ -151,8 +151,7 @@ export async function GET(
       {
         success: false,
         data: [],
-        message:
-          "IDLIX-API tidak reachable. Jalankan `docker compose up -d` pada repo IDLIX-API atau isi IDLIX_API_URL di .env.local.",
+        message: "Server tidak merespons. Periksa koneksi lalu coba lagi.",
       },
       { status: 502, headers: { "cache-control": "no-store" } }
     );

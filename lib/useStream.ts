@@ -94,10 +94,10 @@ export function useStream(options: Options): StreamResult {
         meta: "",
         error:
           json === null
-            ? "Tidak bisa menghubungi IDLIX-API. Pastikan layanan API jalan (docker ps harus menampilkan container idlix-api), lalu tekan Coba lagi."
-            : `Stream ${kind === "series" ? "episode" : "judul"} ini tidak tersedia di sumber.${
-                typeof json.message === "string" && json.message ? ` Pesan sumber: “${json.message}”.` : ""
-              } Coba lagi atau pilih judul lain yang detailnya bisa dibuka.`,
+            ? "Tidak bisa menghubungi server. Periksa koneksi internetmu, lalu tekan Coba lagi."
+            : `Stream ${kind === "series" ? "episode" : "judul"} ini tidak tersedia.${
+                typeof json.message === "string" && json.message ? ` Info: “${json.message}”.` : ""
+              } Coba lagi atau pilih judul lain.`,
       });
     })();
 

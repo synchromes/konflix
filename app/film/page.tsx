@@ -1,33 +1,24 @@
-import Link from "next/link";
-import PagedListing from "@/components/PagedListing";
-import { GENRES } from "@/lib/constants";
-import { parsePage } from "@/lib/pagination";
+import { Suspense } from "react";
+import FilterableListing from "@/components/FilterableListing";
 
-export default async function FilmPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ page?: string }>;
-}) {
-  const sp = await searchParams;
-  const page = parsePage(sp.page);
-
+function Fallback() {
   return (
-    <PagedListing
-      title="Film"
-      page={page}
-      hrefBase="/film"
-      // /movie/trending/:page menghormati nomor halaman (browse /movie selalu page 1 di upstream)
-      listPath={`/movie/trending/${page}`}
-      kind="movie"
-      chips={GENRES.map((g) => (
-        <Link
-          key={g}
-          href={`/genre/${g}?type=movie`}
-          className="rounded-full border border-white/15 px-3 py-1 text-xs text-zinc-300 hover:border-red-600 hover:text-white"
-        >
-          {g}
-        </Link>
-      ))}
-    />
+    <div className="py-8" aria-busy="true">
+      <div className="h-8 w-40 animate-pulse rounded bg-zinc-800" />
+      <div className="mt-4 h-32 animate-pulse rounded-xl bg-zinc-800/60" />
+      <div className="mt-6 grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+        {Array.from({ length: 12 }).map((_, i) => (
+          <div key={i} className="aspect-[2/3] animate-pulse rounded-lg bg-zinc-800" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function FilmPage() {
+  return (
+    <Suspense fallback={<Fallback />}>
+      <FilterableListing title="Film" kind="movie" hrefBase="/film" />
+    </Suspense>
   );
 }

@@ -85,7 +85,7 @@ export default async function MovieDetail({ params }: { params: Promise<{ slug: 
       <ApiNotice show={!json?.success} />
 
       <div className="-mt-32 flex flex-col gap-6 sm:flex-row">
-        <div className="relative h-[300px] w-[200px] shrink-0 overflow-hidden rounded-xl ring-1 ring-white/15">
+        <div className="relative mx-auto h-[300px] w-[200px] shrink-0 overflow-hidden rounded-xl ring-1 ring-white/15 sm:mx-0">
           {d.poster ? <Image src={String(d.poster)} alt={title} fill className="object-cover" sizes="200px" /> : null}
         </div>
         <div className="min-w-0 flex-1">

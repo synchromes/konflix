@@ -48,7 +48,7 @@ export default function BrowseResults({
 
   return (
     <p className="rounded-xl bg-zinc-900 p-6 text-sm text-zinc-400 ring-1 ring-white/10">
-      {emptyLabel ?? "Tidak ada judul yang cocok. Sumber sedang tidak menyediakan data untuk filter ini."}
+      {emptyLabel ?? "Tidak ada judul yang cocok untuk filter ini."}
     </p>
   );
 }

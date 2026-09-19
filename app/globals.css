@@ -17,6 +17,16 @@ body {
   height: 100%;
 }
 
+html {
+  /* Jangkauan anchor (#episode, lewati ke konten) bergulir halus. */
+  scroll-behavior: smooth;
+}
+
+::selection {
+  background: rgb(220 38 38 / 0.85);
+  color: #fff;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -32,6 +42,29 @@ body {
   scrollbar-width: none;
 }
 
+/* Scrollbar ramping gelap senada tema (halaman, dropdown, dsb) — bukan putih
+   bawaan browser. Aturan .no-scrollbar di atas tetap menang bila dibutuhkan. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(82 82 91) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgb(82 82 91);
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgb(220 38 38);
+}
+
 .rail-scroll {
   scroll-behavior: smooth;
+  /* Momentum usap ala aplikasi di iOS; tanpa ini geseran terasa tersendat. */
+  -webkit-overflow-scrolling: touch;
 }

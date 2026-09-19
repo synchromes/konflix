@@ -27,7 +27,7 @@ export default async function CountryPage({
         <BrowseResults
           section={section}
           kind={kind}
-          emptyLabel="Sumber tidak menemukan judul untuk negara ini. Coba negara lain atau pilih “Semua” dari halaman film."
+          emptyLabel="Tidak ada judul untuk negara ini. Coba negara lain."
         />
       </div>
     </div>

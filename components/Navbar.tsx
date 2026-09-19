@@ -8,7 +8,7 @@ const LINKS = [
   { href: "/", label: "Beranda" },
   { href: "/film", label: "Film" },
   { href: "/series", label: "Series" },
-  { href: "/genre/action", label: "Genre" },
+  { href: "/genre", label: "Genre" },
   { href: "/my-list", label: "Daftar Saya" },
 ];
 
@@ -18,6 +18,7 @@ export default function Navbar() {
   const [q, setQ] = useState("");
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -25,6 +26,15 @@ export default function Navbar() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  const submitSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const query = q.trim();
+    if (!query) return;
+    router.push(`/search?q=${encodeURIComponent(query)}`);
+    setOpen(false);
+    setSearchOpen(false);
+  };
 
   return (
     <header
@@ -49,19 +59,13 @@ export default function Navbar() {
           ))}
         </nav>
 
-        <form
-          className="ml-auto flex items-center gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            router.push(`/search?q=${encodeURIComponent(q.trim())}`);
-            setOpen(false);
-          }}
-        >
+        <form className="ml-auto hidden items-center gap-2 sm:flex" onSubmit={submitSearch}>
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Cari film / series…"
-            className="hidden w-52 rounded-md border border-white/15 bg-white/10 px-3 py-1.5 text-sm text-white placeholder:text-zinc-400 focus:border-red-600 focus:outline-none sm:block"
+            aria-label="Cari film atau series"
+            className="w-52 rounded-md border border-white/15 bg-white/10 px-3 py-1.5 text-sm text-white placeholder:text-zinc-400 focus:border-red-600 focus:outline-none"
           />
           <button
             type="submit"
@@ -69,16 +73,51 @@ export default function Navbar() {
           >
             Cari
           </button>
+        </form>
+        <div className="ml-auto flex items-center gap-2 sm:hidden">
+          <button
+            type="button"
+            onClick={() => setSearchOpen((v) => !v)}
+            aria-label="Cari"
+            aria-expanded={searchOpen}
+            className="rounded-md border border-white/15 p-2 text-zinc-200"
+          >
+            <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+              <path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM16.5 16.5 21 21" />
+            </svg>
+          </button>
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
             className="rounded-md border border-white/15 px-2.5 py-1.5 text-sm text-white md:hidden"
             aria-label="Menu"
+            aria-expanded={open}
           >
             ☰
           </button>
-        </form>
+        </div>
       </div>
+
+      {searchOpen && (
+        <form className="border-t border-white/10 bg-black/95 px-4 py-3 sm:hidden" onSubmit={submitSearch}>
+          <div className="flex gap-2">
+            <input
+              autoFocus
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Cari film / series…"
+              aria-label="Cari film atau series"
+              className="min-w-0 flex-1 rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-zinc-400 focus:border-red-600 focus:outline-none"
+            />
+            <button
+              type="submit"
+              className="shrink-0 rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+            >
+              Cari
+            </button>
+          </div>
+        </form>
+      )}
 
       {open && (
         <nav className="border-t border-white/10 bg-black/95 px-4 py-3 md:hidden">

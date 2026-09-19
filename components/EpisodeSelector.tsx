@@ -21,7 +21,7 @@ export default function EpisodeSelector({
   const activeNum = active?.num ?? season;
 
   return (
-    <section className="mt-8 rounded-xl bg-zinc-900/60 p-4 ring-1 ring-white/10">
+    <section id="episode" className="mt-8 scroll-mt-24 rounded-xl bg-zinc-900/60 p-4 ring-1 ring-white/10">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-bold text-white">Season:</span>
         {seasons.map((s) => (

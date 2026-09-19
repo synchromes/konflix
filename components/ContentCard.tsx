@@ -1,5 +1,8 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 import type { ContentItem, Kind } from "@/lib/idlix";
 import { itemDetailHref, itemKind, itemPoster, itemSlug, itemTitle, kindLabel } from "@/lib/idlix";
 
@@ -17,8 +20,9 @@ export default function ContentCard({
   eager?: boolean;
 }) {
   const slug = itemSlug(item);
+  const [imgFailed, setImgFailed] = useState(false);
   if (!slug) return null;
-  const poster = itemPoster(item);
+  const poster = imgFailed ? "" : itemPoster(item);
   const title = itemTitle(item);
   const resolved = itemKind(item, kind);
   const meta = [item.year, kindPending ? undefined : kindLabel(resolved)].filter(Boolean).join(" • ");
@@ -37,6 +41,7 @@ export default function ContentCard({
             sizes="168px"
             className="object-cover transition duration-300 group-hover:scale-105"
             loading={eager ? "eager" : "lazy"}
+            onError={() => setImgFailed(true)}
           />
         ) : (
           <div className="flex h-full items-center justify-center p-3 text-center text-xs text-zinc-400">
