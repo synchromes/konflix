@@ -22,7 +22,7 @@ export default function ScrollRow({ children }: { children: ReactNode }) {
       <button onClick={() => scroll(-1)} aria-label="Geser kiri" className={`${buttonClass} -left-2`}>
         ‹
       </button>
-      <div ref={ref} className="no-scrollbar rail-scroll flex gap-3 overflow-x-auto overscroll-x-contain pb-1">
+      <div ref={ref} className="no-scrollbar rail-scroll flex gap-3 overflow-x-auto overscroll-x-contain py-1">
         {children}
       </div>
       <button onClick={() => scroll(1)} aria-label="Geser kanan" className={`${buttonClass} -right-2`}>

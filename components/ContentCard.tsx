@@ -30,7 +30,7 @@ export default function ContentCard({
   return (
     <Link
       href={itemDetailHref(item, kind)}
-      className="group w-[140px] shrink-0 overflow-hidden rounded-lg bg-zinc-900 ring-1 ring-white/10 transition hover:ring-red-600 sm:w-[168px]"
+      className="group/card w-[140px] shrink-0 overflow-hidden rounded-lg bg-zinc-900 ring-1 ring-white/10 transition hover:ring-red-600 sm:w-[168px]"
     >
       <div className="relative aspect-[2/3] w-full overflow-hidden bg-zinc-800">
         {poster ? (
@@ -39,7 +39,7 @@ export default function ContentCard({
             alt={title}
             fill
             sizes="168px"
-            className="object-cover transition duration-300 group-hover:scale-105"
+            className="object-cover transition duration-300 group-hover/card:scale-105"
             loading={eager ? "eager" : "lazy"}
             onError={() => setImgFailed(true)}
           />
